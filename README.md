@@ -22,7 +22,7 @@ SKK-JISYO.L などの辞書ファイルを自動検出、または手動で複�
 
 🚀 使い方
 ファイルの準備
-このリポジトリの index.html と、お好みのSKK辞書ファイル（例: SKK-JISYO.L や SKK-JISYO.L.unannotated など）を同じフォルダ（またはディレクトリ）に配置します。
+このリポジトリの index.html と、お好みのSKK辞書ファイルを同じフォルダ（またはディレクトリ）に配置します。
 起動する
 index.html をダブルクリックして、お使いのWebブラウザ（Google ChromeやEdgeなど）で開きます。
 検索する
