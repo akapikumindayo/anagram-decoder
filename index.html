@@ -233,7 +233,8 @@
       'SKK-JISYO.M',
       'SKK-JISYO.JIS2',
       'SKK-JISYO.fullname',
-      'SKK-JISYO.JIS3_4'
+      'SKK-JISYO.JIS3_4',
+      'tuikajisyo.unannotated'
     ];
 
     const expansionRules = {
@@ -362,7 +363,7 @@
           }
 
           generatedWords.forEach(item => {
-            if (item.word.length >= 2) {
+            if (item.word.length >= 1) {
               wordsSet.add(item.word);
               if (!item.normal) {
                 unnaturalWords.add(item.word);
