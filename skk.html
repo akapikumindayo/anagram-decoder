@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SKK辞書対応 アナグラム解析機 (マルチ辞書自動読込対応)</title>
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-color: #f8fafc;
+      --border-color: #e2e8f0;
+      --text-main: #1e293b;
+    }
+    body {
+      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    .container {
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-top: 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 10px;
+    }
+    .dic-status-card {
+      background: #f1f5f9;
+      border: 1px solid var(--border-color);
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    .dic-status-card.loaded {
+      background: #ecfdf5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+    .control-group {
+      margin-bottom: 20px;
+    }
+    .radio-group {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #f1f5f9;
+      border-radius: 6px;
+    }
+    .radio-group label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: bold;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus {
+      border-color: var(--primary-color);
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover:not(:disabled) {
+      background-color: var(--primary-hover);
+    }
+    button:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+    }
+    .table-container {
+      margin-top: 30px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid var(--border-color);
+      padding: 12px 15px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f1f5f9;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    tr.unnatural-row {
+      background-color: #fff7ed;
+    }
+    tr.unnatural-row:nth-child(even) {
+      background-color: #ffedd5;
+    }
+    tr.exact-match-row {
+      background-color: #f0fdf4;
+    }
+    .kanji-text {
+      color: #475569;
+      font-size: 0.95rem;
+    }
+    .kanji-badge {
+      display: inline-block;
+      background: #e2e8f0;
+      color: #334155;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 2px;
+      font-size: 0.85rem;
+    }
+    .exact-badge {
+      background-color: #22c55e;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-left: 5px;
+    }
+    .warning-text {
+      color: #d97706;
+      font-weight: bold;
+    }
+    .error-msg {
+      color: #dc2626;
+      font-weight: bold;
+    }
+    .info-msg {
+      color: #475569;
+    }
+    .loader {
+      display: none;
+      font-weight: bold;
+      color: var(--primary-color);
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>SKK辞書対応 アナグラム解析機</h1>
+    
+    <div id="dicStatus" class="dic-status-card">
+      <div id="dicMessage">辞書ファイルを読み込んでいます...</div>
+      <div id="fileFallback" style="display: none; margin-top: 10px;">
+        <label style="font-weight: bold;">追加のSKK辞書ファイルを選択（手動）: </label>
+        <input type="file" id="dicFileInput" accept=".L,.M,.S,.JIS2,.fullname,.txt,.unannotated" multiple>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <div class="radio-group">
+        <label>
+          <input type="radio" name="mode" value="single" checked> 一単語モード
+        </label>
+        <label>
+          <input type="radio" name="mode" value="multi"> 二単語以上（組み合わせ）モード
+        </label>
+      </div>
+      
+      <div class="input-row">
+        <input type="text" id="targetWord" placeholder="ひらがなを入力 (例: さくら)" disabled>
+        <button id="searchBtn" onclick="startAnalysis()" disabled>解析する</button>
+      </div>
+      <div id="loading" class="loader">解析中... 少々お待ちください。</div>
+    </div>
+
+    <div class="table-container">
+      <div id="statusMessage" class="info-msg">辞書の読み込み完了をお待ちください。</div>
+      <table id="resultTable" style="display: none;">
+        <thead>
+          <tr>
+            <th style="width: 50px;">No.</th>
+            <th style="width: 200px;">ひらがな</th>
+            <th>漢字候補</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let wordsSet = new Set();
+    let dictionary = [];
+    let kanjiMap = new Map();
+    let unnaturalWords = new Set(); 
+    let loadedFilesCount = 0;
+    const MAX_RESULTS = 100;
+
+    // 自動読み込みする辞書の候補リスト（同一フォルダ内にあるものを順番に探しに行く）
+    const defaultDictionaryFiles = [
+      'SKK-JISYO.L',
+      'SKK-JISYO.L.unannotated',
+      'SKK-JISYO.M',
+      'SKK-JISYO.JIS2',
+      'SKK-JISYO.fullname',
+      'SKK-JISYO.JIS3_4'
+    ];
+
+    const expansionRules = {
+      'k': [ {k:'か', n:false}, {k:'き', n:true}, {k:'く', n:true}, {k:'け', n:false}, {k:'こ', n:false} ],
+      'g': [ {k:'が', n:false}, {k:'ぎ', n:true}, {k:'ぐ', n:true}, {k:'げ', n:false}, {k:'ご', n:false} ],
+      's': [ {k:'さ', n:false}, {k:'し', n:true}, {k:'す', n:true}, {k:'せ', n:false}, {k:'そ', n:false} ],
+      'z': [ {k:'ざ', n:false}, {k:'じ', n:true}, {k:'ず', n:true}, {k:'ぜ', n:false}, {k:'ぞ', n:false} ],
+      't': [ {k:'た', n:false}, {k:'ち', n:true}, {k:'つ', n:true}, {k:'て', n:false}, {k:'と', n:false}, {k:'っ', n:false} ],
+      'd': [ {k:'だ', n:false}, {k:'ぢ', n:true}, {k:'づ', n:true}, {k:'で', n:false}, {k:'ど', n:false} ],
+      'n': [ {k:'な', n:false}, {k:'に', n:true}, {k:'ぬ', n:true}, {k:'ね', n:false}, {k:'の', n:false}, {k:'ん', n:false} ],
+      'h': [ {k:'は', n:false}, {k:'ひ', n:true}, {k:'ふ', n:true}, {k:'へ', n:false}, {k:'ほ', n:false} ],
+      'b': [ {k:'ば', n:false}, {k:'び', n:true}, {k:'ぶ', n:true}, {k:'べ', n:false}, {k:'ぼ', n:false} ],
+      'm': [ {k:'ま', n:false}, {k:'み', n:true}, {k:'む', n:true}, {k:'め', n:false}, {k:'も', n:false} ],
+      'p': [ {k:'ぱ', n:false}, {k:'ぴ', n:true}, {k:'ぷ', n:true}, {k:'ぺ', n:false}, {k:'ぽ', n:false} ],
+      'r': [ {k:'ら', n:false}, {k:'り', n:true}, {k:'る', n:true}, {k:'れ', n:false}, {k:'ろ', n:false} ],
+      'w': [ {k:'わ', n:false}, {k:'い', n:true}, {k:'う', n:true}, {k:'え', n:false}, {k:'お', n:false} ],
+      'y': [ {k:'や', n:false}, {k:'ゆ', n:true}, {k:'よ', n:false} ],
+      'i': [ {k:'い', n:true}, {k:'く', n:true}, {k:'け', n:false}, {k:'し', n:false} ] 
+    };
+    const vowelMap = { 'a':'あ', 'i':'い', 'u':'う', 'e':'え', 'o':'お' };
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      // 複数のデフォルト辞書を順番に非同期で自動検出・読み込み
+      let successCount = 0;
+      for (const fileName of defaultDictionaryFiles) {
+        const loaded = await loadSKKDictionaryFromUrlQuietly(fileName);
+        if (loaded) successCount++;
+      }
+
+      if (successCount > 0) {
+        dictionary = Array.from(wordsSet);
+        updateDicStatus(`辞書の自動読み込み完了！ (読込ファイル数: ${loadedFilesCount} / 収録単語: ${dictionary.length.toLocaleString()} 件)`, true);
+        enableUI();
+      } else {
+        updateDicStatus('同一フォルダに有効なSKK辞書ファイルが見つかりませんでした。下部からファイルを選択してください。', false, true);
+      }
+      document.getElementById('fileFallback').style.display = 'block';
+    });
+
+    document.getElementById('dicFileInput').addEventListener('change', async (e) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      updateDicStatus('追加の辞書ファイルをパース・結合中...', false);
+      
+      for (let i = 0; i < files.length; i++) {
+        await parseFileAsync(files[i]);
+      }
+
+      dictionary = Array.from(wordsSet);
+      updateDicStatus(`辞書の結合完了！ (読込ファイル総数: ${loadedFilesCount} / 収録単語: ${dictionary.length.toLocaleString()} 件)`, true);
+      enableUI();
+    });
+
+    function parseFileAsync(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          parseSKKContent(evt.target.result);
+          loadedFilesCount++;
+          resolve();
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    async function loadSKKDictionaryFromUrlQuietly(fileName) {
+      try {
+        const response = await fetch(fileName);
+        if (!response.ok) return false;
+        const buffer = await response.arrayBuffer();
+        parseSKKContent(buffer);
+        loadedFilesCount++;
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function parseSKKContent(arrayBuffer) {
+      let text = '';
+      try {
+        text = new TextDecoder('euc-jp').decode(arrayBuffer);
+      } catch (e) {
+        text = new TextDecoder('utf-8').decode(arrayBuffer);
+      }
+
+      const lines = text.split('\n');
+      const kanaRegex = /^[\u3040-\u309F]+$/;
+
+      for (let line of lines) {
+        line = line.trim();
+        if (line.startsWith(';;') || line.length === 0) continue;
+
+        const spaceIndex = line.indexOf(' ');
+        if (spaceIndex !== -1) {
+          let entry = line.substring(0, spaceIndex).trim();
+          const kanjiStr = line.substring(spaceIndex + 1).trim();
+
+          const rawCandidates = kanjiStr.split('/')
+                                        .map(k => k.split(';')[0].trim())
+                                        .filter(k => k.length > 0);
+          
+          const lastChar = entry.slice(-1);
+          let generatedWords = [];
+
+          if (expansionRules[lastChar]) {
+            const baseKana = entry.slice(0, -1);
+            if (kanaRegex.test(baseKana)) {
+              expansionRules[lastChar].forEach(rule => {
+                generatedWords.push({ word: baseKana + rule.k, normal: rule.n });
+              });
+            }
+          } 
+          else if (vowelMap[lastChar]) {
+            const baseKana = entry.slice(0, -1);
+            if (kanaRegex.test(baseKana)) {
+              generatedWords.push({ word: baseKana + vowelMap[lastChar], normal: true });
+            }
+          } 
+          else {
+            if (kanaRegex.test(entry)) {
+              generatedWords.push({ word: entry, normal: true });
+            }
+          }
+
+          generatedWords.forEach(item => {
+            if (item.word.length >= 2) {
+              wordsSet.add(item.word);
+              if (!item.normal) {
+                unnaturalWords.add(item.word);
+              }
+              
+              if (rawCandidates.length > 0) {
+                if (!kanjiMap.has(item.word)) kanjiMap.set(item.word, new Set());
+                const kSet = kanjiMap.get(item.word);
+                rawCandidates.forEach(k => kSet.add(k));
+              }
+            }
+          });
+        }
+      }
+    }
+
+    function updateDicStatus(message, isSuccess, isError = false) {
+      const card = document.getElementById('dicStatus');
+      const msgEl = document.getElementById('dicMessage');
+      msgEl.textContent = message;
+      if (isSuccess) card.classList.add('loaded'); else card.classList.remove('loaded');
+      if (isError) msgEl.classList.add('error-msg'); else msgEl.classList.remove('error-msg');
+    }
+
+    function enableUI() {
+      document.getElementById('targetWord').disabled = false;
+      document.getElementById('searchBtn').disabled = false;
+      document.getElementById('statusMessage').textContent = '条件を入力して「解析する」を押してください。';
+    }
+
+    function getCharCounts(str) {
+      const counts = {};
+      for (const char of str) counts[char] = (counts[char] || 0) + 1;
+      return counts;
+    }
+
+    function sortString(str) {
+      return str.split('').sort().join('');
+    }
+
+    function canFormWord(wordCounts, targetCounts) {
+      for (const char in wordCounts) {
+        if (!targetCounts[char] || targetCounts[char] < wordCounts[char]) return false;
+      }
+      return true;
+    }
+
+    function subtractCounts(targetCounts, wordCounts) {
+      const newCounts = { ...targetCounts };
+      for (const char in wordCounts) {
+        newCounts[char] -= wordCounts[char];
+        if (newCounts[char] === 0) delete newCounts[char];
+      }
+      return newCounts;
+    }
+
+    function getComboUnnaturalScore(combo) {
+      return combo.filter(w => unnaturalWords.has(w)).length;
+    }
+
+    function isExactMatch(combo, input) {
+      return combo.join('') === input;
+    }
+
+    function analyzeSingleWord(input) {
+      const targetSorted = sortString(input);
+      const results = [];
+      for (const word of dictionary) {
+        if (sortString(word) === targetSorted) {
+          results.push([word]);
+        }
+      }
+      return results;
+    }
+
+    function analyzeMultiWords(input) {
+      const targetCounts = getCharCounts(input);
+      const targetLength = input.length;
+      
+      const validWords = [];
+      for (const word of dictionary) {
+        const wCounts = getCharCounts(word);
+        if (canFormWord(wCounts, targetCounts)) {
+          validWords.push({ word, counts: wCounts, length: word.length });
+        }
+      }
+      
+      validWords.sort((a, b) => {
+        const aNormal = !unnaturalWords.has(a.word);
+        const bNormal = !unnaturalWords.has(b.word);
+        if (aNormal !== bNormal) return aNormal ? -1 : 1;
+        return b.length - a.length;
+      });
+
+      const results = [];
+
+      function dfs(currentCounts, remainingLength, currentCombo, startIndex) {
+        if (results.length >= MAX_RESULTS) return;
+        
+        if (remainingLength === 0) {
+          results.push([...currentCombo]);
+          return;
+        }
+
+        for (let i = startIndex; i < validWords.length; i++) {
+          const candidate = validWords[i];
+          if (candidate.length > remainingLength) continue;
+
+          if (canFormWord(candidate.counts, currentCounts)) {
+            currentCombo.push(candidate.word);
+            const nextCounts = subtractCounts(currentCounts, candidate.counts);
+            dfs(nextCounts, remainingLength - candidate.length, currentCombo, i);
+            currentCombo.pop();
+          }
+        }
+      }
+
+      dfs(targetCounts, targetLength, [], 0);
+      return results;
+    }
+
+    function startAnalysis() {
+      const input = document.getElementById('targetWord').value.trim();
+      const statusMsg = document.getElementById('statusMessage');
+      const table = document.getElementById('resultTable');
+      const tbody = document.getElementById('resultBody');
+      const loading = document.getElementById('loading');
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+
+      if (!input) {
+        statusMsg.innerHTML = '<span class="error-msg">解析する文字を入力してください。</span>';
+        table.style.display = 'none';
+        return;
+      }
+
+      statusMsg.textContent = '';
+      table.style.display = 'none';
+      tbody.innerHTML = '';
+      loading.style.display = 'block';
+
+      setTimeout(() => {
+        const t0 = performance.now();
+        let results = [];
+
+        if (mode === 'single') {
+          results = analyzeSingleWord(input);
+        } else {
+          results = analyzeMultiWords(input);
+        }
+
+        results.sort((a, b) => {
+          const exactA = isExactMatch(a, input) ? -1 : 0;
+          const exactB = isExactMatch(b, input) ? -1 : 0;
+          if (exactA !== exactB) return exactA - exactB;
+          
+          return getComboUnnaturalScore(a) - getComboUnnaturalScore(b);
+        });
+
+        const t1 = performance.now();
+        const timeTaken = ((t1 - t0) / 1000).toFixed(2);
+        
+        loading.style.display = 'none';
+
+        if (results.length > 0) {
+          statusMsg.innerHTML = `<strong>${results.length}</strong> 件のアナグラムが見つかりました。（処理時間: ${timeTaken}秒）`;
+          if (mode === 'multi' && results.length >= MAX_RESULTS) {
+             statusMsg.innerHTML += `<br><span class="error-msg">※組み合わせが多すぎるため、最初の ${MAX_RESULTS} 件のみ表示しています。</span>`;
+          }
+          
+          results.forEach((combo, index) => {
+            const isUnnatural = getComboUnnaturalScore(combo) > 0;
+            const isExact = isExactMatch(combo, input);
+            
+            const tr = document.createElement('tr');
+            if (isExact) {
+              tr.className = 'exact-match-row';
+            } else if (isUnnatural) {
+              tr.className = 'unnatural-row';
+            }
+            
+            const tdNo = document.createElement('td');
+            tdNo.textContent = index + 1;
+            
+            const tdKana = document.createElement('td');
+            let kanaContent = combo.map(w => {
+              if (unnaturalWords.has(w)) {
+                return `<strong class="warning-text">⚠️${w}</strong>`;
+              }
+              return `<strong>${w}</strong>`;
+            }).join(' + ');
+            
+            if (isExact) {
+              kanaContent += ' <span class="exact-badge">完全一致</span>';
+            }
+            tdKana.innerHTML = kanaContent;
+
+            const tdKanji = document.createElement('td');
+            tdKanji.className = 'kanji-text';
+
+            const kanjiGroupHTML = combo.map(w => {
+              const kSet = kanjiMap.get(w);
+              const mark = unnaturalWords.has(w) ? '⚠️' : '';
+              if (kSet && kSet.size > 0) {
+                const kList = Array.from(kSet).map(k => `<span class="kanji-badge">${k}</span>`).join('');
+                return combo.length > 1 ? `<div><strong>【${mark}${w}】</strong>${kList}</div>` : kList;
+              } else {
+                return combo.length > 1 ? `<div><strong>【${mark}${w}】</strong><span class="kanji-badge">${w}</span></div>` : `<span class="kanji-badge">${w}</span>`;
+              }
+            }).join('');
+
+            tdKanji.innerHTML = kanjiGroupHTML;
+
+            tr.appendChild(tdNo);
+            tr.appendChild(tdKana);
+            tr.appendChild(tdKanji);
+            tbody.appendChild(tr);
+          });
+          
+          table.style.display = 'table';
+        } else {
+          statusMsg.innerHTML = '条件に一致するアナグラムは見つかりませんでした。';
+          table.style.display = 'none';
+        }
+      }, 50);
+    }
+  </script>
+</body>
+</html>
